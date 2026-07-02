@@ -325,6 +325,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
         <div class="form-group"><label class="form-label">⏰ Prazo</label><input type="datetime-local" class="form-input" id="sub-due"></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="form-label">✅ Conclusão</label><input type="datetime-local" class="form-input" id="sub-completed"></div>
+        <div class="form-group" style="justify-content:flex-end;"><span style="font-size:11px;color:var(--text3);line-height:1.4;">Opcional. Preenchido automaticamente ao marcar como <strong style="color:var(--done);">Concluído</strong>.</span></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="sub-status"><option value="todo">A Fazer</option><option value="doing">Em Andamento</option><option value="review">Em Revisão</option><option value="done">Concluído</option></select></div>
         <div class="form-group"><label class="form-label">Prioridade</label><select class="form-select" id="sub-priority"><option value="alta">🔴 Alta</option><option value="media" selected>🟡 Média</option><option value="baixa">🟢 Baixa</option></select></div>
       </div>
@@ -361,6 +365,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
       <div id="sd-steps-progress" style="margin-bottom:10px;display:none;"><div class="progress-label"><span>Progresso</span><span id="sd-steps-pct">0%</span></div><div class="progress-bar"><div class="progress-fill" id="sd-steps-bar" style="background:var(--done);width:0%;"></div></div></div>
       <div class="steps-list" id="sd-steps"></div>
       <div class="step-add-row"><input type="text" class="step-add-input" id="sub-step-input" placeholder="Descrever etapa e pressionar Enter..."><button class="btn btn-primary btn-sm" onclick="addSubStep()">Adicionar</button></div>
+    </div>
+    <!-- OBSERVAÇÕES SUBTAREFA -->
+    <div class="detail-section">
+      <div class="detail-label">Observações</div>
+      <div class="comment-box" style="margin-bottom:10px;"><textarea class="comment-input" id="sd-comment" placeholder="Adicione uma observação..."></textarea><button class="btn btn-primary" style="height:40px;" onclick="saveSubComment()">Salvar</button></div>
+      <div id="sd-comments" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
     <div class="modal-footer"><button class="btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteSubtask()">Excluir</button><button class="btn" onclick="closeSubDetail()">Fechar</button></div>
   </div>
@@ -577,14 +587,20 @@ function renderSubs(t){
   const el=document.getElementById('d-subtasks');if(!el)return;
   if(!subs.length){el.innerHTML=`<div style="font-size:12px;color:var(--text3);padding:4px 0;">Nenhuma subtarefa ainda</div>`;return;}
   el.innerHTML=subs.map(s=>{
-    const sp=sprog(s.steps),od=over(s);
+    const sp=sprog(s.steps),od=over(s),nc=(s.comments||[]).length;
     return`<div class="subtask-item" onclick="openSubDetail(${s.id});event.stopPropagation()">
       <div class="subtask-header">
         <span class="subtask-id">#SUB-${String(s.id).padStart(2,'0')}</span>
         <span class="subtask-title">${esc(s.title)}</span>
+        ${nc>0?`<span style="font-size:10px;color:var(--text3);">💬 ${nc}</span>`:''}
         ${od?'<span class="overdue-badge">Atrasada</span>':''}
         <span class="subtask-status tag-${s.status}">${slbl(s.status)}</span>
       </div>
+      ${(s.start||s.due||s.completed)?`<div class="card-dates" style="margin-top:6px;margin-bottom:0;">
+        ${s.start?`<span class="date-badge start">▶ ${fdt(s.start)}</span>`:''}
+        ${s.due?`<span class="date-badge due ${od?'overdue':''}">⏰ ${fdt(s.due)}</span>`:''}
+        ${s.completed?`<span class="date-badge" style="background:rgba(34,197,94,0.12);color:var(--done);">✅ ${fdt(s.completed)}</span>`:''}
+      </div>`:''}
       ${sp.total>0?`<div class="subtask-progress" style="margin-top:6px;"><div class="progress-label" style="font-size:10px;"><span>Etapas ${sp.done}/${sp.total}</span><span>${sp.pct}%</span></div><div class="progress-bar"><div class="progress-fill" style="background:var(--done);width:${sp.pct}%;"></div></div></div>`:''}
     </div>`;
   }).join('');
@@ -594,7 +610,7 @@ function openSubtask(){
   const t=tsk(currentTaskId);if(!t)return;
   document.getElementById('sub-parent-label').textContent=`Tarefa pai: #KAN-${String(t.id).padStart(2,'0')} — ${t.title}`;
   ['sub-title','sub-desc'].forEach(i=>document.getElementById(i).value='');
-  ['sub-start','sub-due'].forEach(i=>document.getElementById(i).value='');
+  ['sub-start','sub-due','sub-completed'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('sub-status').value='todo';document.getElementById('sub-priority').value='media';
   document.getElementById('sub-executor').value='';document.getElementById('sub-avaliador').value='';
   popSel(['sub-executor','sub-avaliador']);
@@ -609,10 +625,14 @@ function createSubtask(){
   const ex=document.getElementById('sub-executor').value,av=document.getElementById('sub-avaliador').value;
   if(ex&&av&&ex===av){toast('Executor e avaliador devem ser diferentes');return;}
   if(!t.subtasks)t.subtasks=[];
+  const subStatus=document.getElementById('sub-status').value;
+  let subCompleted=document.getElementById('sub-completed').value||null;
+  if(subStatus==='done'&&!subCompleted)subCompleted=new Date().toISOString().slice(0,16);
   t.subtasks.push({id:state.nextId++,title,desc:document.getElementById('sub-desc').value.trim(),
     start:document.getElementById('sub-start').value||null,due:document.getElementById('sub-due').value||null,
-    status:document.getElementById('sub-status').value,priority:document.getElementById('sub-priority').value,
-    executor:ex?parseInt(ex):null,avaliador:av?parseInt(av):null,steps:[],created:new Date().toLocaleDateString('pt-BR')});
+    completed:subCompleted,
+    status:subStatus,priority:document.getElementById('sub-priority').value,
+    executor:ex?parseInt(ex):null,avaliador:av?parseInt(av):null,steps:[],comments:[],created:new Date().toLocaleDateString('pt-BR')});
   save();document.getElementById('modal-sub').classList.remove('open');renderSubs(t);toast('Subtarefa criada!');
 }
 
@@ -626,17 +646,13 @@ function openSubDetail(subId){
   ['todo','doing','review','done'].forEach(x=>document.getElementById('sd-chip-'+x).classList.toggle('active',s.status===x));
   const ex=mbr(s.executor),av=mbr(s.avaliador);
   document.getElementById('sd-people').innerHTML=pCard(ex,'👤 Executor')+pCard(av,'🔍 Avaliador');
-  const dds=document.getElementById('sd-dates-section');
-  if(s.start||s.due){
-    dds.style.display='';
-    document.getElementById('sd-dates').innerHTML=
-      (s.start?`<div class="detail-date-box"><div class="detail-date-label">▶ Início</div><div class="detail-date-val">${fdt(s.start)}</div></div>`:'')+
-      (s.due?`<div class="detail-date-box"><div class="detail-date-label">⏰ Prazo</div><div class="detail-date-val">${fdt(s.due)}</div></div>`:'');
-  }else dds.style.display='none';
+  renderSubDates(s);
   const sdesc=document.getElementById('sd-desc-section');
   if(s.desc){document.getElementById('sd-desc').textContent=s.desc;sdesc.style.display='';}else sdesc.style.display='none';
   document.getElementById('sub-step-input').value='';
   renderSubSteps(s);
+  document.getElementById('sd-comment').value='';
+  renderCmts(s,'sd-comments');
   document.getElementById('modal-sub-detail').classList.add('open');
 }
 
@@ -646,10 +662,23 @@ function closeSubDetail(e){
     const t=tsk(currentTaskId);if(t)renderSubs(t);
   }
 }
+function renderSubDates(s){
+  const dds=document.getElementById('sd-dates-section');
+  if(s.start||s.due||s.completed){
+    dds.style.display='';
+    document.getElementById('sd-dates').innerHTML=
+      (s.start?`<div class="detail-date-box"><div class="detail-date-label">▶ Início</div><div class="detail-date-val">${fdt(s.start)}</div></div>`:'')+
+      (s.due?`<div class="detail-date-box" style="${over(s)?'border-color:rgba(239,68,68,0.4);':''}"><div class="detail-date-label">⏰ Prazo</div><div class="detail-date-val" style="${over(s)?'color:var(--danger);':''}">${fdt(s.due)}</div></div>`:'')+
+      (s.completed?`<div class="detail-date-box" style="border-color:rgba(34,197,94,0.35);"><div class="detail-date-label">✅ Conclusão</div><div class="detail-date-val" style="color:var(--done);">${fdt(s.completed)}</div></div>`:'');
+  }else dds.style.display='none';
+}
 function changeSubStatus(s){
   const t=tsk(currentTaskId);if(!t)return;
   const sub=(t.subtasks||[]).find(x=>x.id===currentSubId);if(!sub)return;
-  sub.status=s;save();['todo','doing','review','done'].forEach(x=>document.getElementById('sd-chip-'+x).classList.toggle('active',x===s));
+  sub.status=s;
+  if(s==='done'&&!sub.completed)sub.completed=new Date().toISOString().slice(0,16);
+  save();['todo','doing','review','done'].forEach(x=>document.getElementById('sd-chip-'+x).classList.toggle('active',x===s));
+  renderSubDates(sub);
   renderSubs(t);toast(`Status: ${slbl(s)}`);
 }
 function deleteSubtask(){
@@ -688,6 +717,13 @@ function saveComment(){
   const text=document.getElementById('d-comment').value.trim();if(!text)return;
   if(!t.comments)t.comments=[];t.comments.push({text,date:new Date().toLocaleString('pt-BR')});
   save();document.getElementById('d-comment').value='';renderCmts(t,'d-comments');toast('Observação salva!');
+}
+function saveSubComment(){
+  const t=tsk(currentTaskId);if(!t)return;
+  const s=(t.subtasks||[]).find(x=>x.id===currentSubId);if(!s)return;
+  const text=document.getElementById('sd-comment').value.trim();if(!text)return;
+  if(!s.comments)s.comments=[];s.comments.push({text,date:new Date().toLocaleString('pt-BR')});
+  save();document.getElementById('sd-comment').value='';renderCmts(s,'sd-comments');toast('Observação salva!');
 }
 
 function setView(v){
