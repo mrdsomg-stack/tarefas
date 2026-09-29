@@ -137,6 +137,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
 .comment-image-preview{display:block;max-width:220px;max-height:150px;border-radius:6px;object-fit:cover;}
 .image-preview-remove{position:absolute;top:10px;right:10px;width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;cursor:pointer;font-size:16px;line-height:24px;text-align:center;}
 .comment-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;}
+.comment-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
+.comment-meta-date{font-size:11px;color:var(--text3);line-height:1.35;}
+.comment-edit-btn{border:none;background:transparent;color:var(--text3);font-family:var(--font);font-size:11px;cursor:pointer;padding:3px 7px;border-radius:4px;white-space:nowrap;}
+.comment-edit-btn:hover{color:var(--accent2);background:rgba(92,110,248,.1);}
 .comment-text{font-size:13px;color:var(--text2);white-space:pre-wrap;word-break:break-word;}
 .comment-image{display:block;max-width:100%;max-height:360px;margin-top:8px;border-radius:8px;border:1px solid var(--border2);object-fit:contain;background:var(--bg);cursor:zoom-in;}
 .image-lightbox{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:30px;}
@@ -322,7 +326,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
           <textarea class="comment-input" id="d-comment" placeholder="Adicione uma observação..."></textarea>
           <div class="comment-actions">
             <label class="btn btn-sm attach-btn">📎 Imagem<input type="file" id="d-comment-image" accept="image/jpeg,image/png,image/webp,image/gif" onchange="handleCommentImage(this,'task')"></label>
-            <button class="btn btn-primary" style="height:40px;" onclick="saveComment()">Salvar</button>
+            <button class="btn btn-sm" id="d-comment-cancel" style="height:40px;display:none;" onclick="cancelCommentEdit('task')">Cancelar edição</button>
+            <button class="btn btn-primary" id="d-comment-save" style="height:40px;" onclick="saveComment()">Salvar</button>
           </div>
         </div>
         <div class="image-preview-wrap" id="d-image-preview"></div>
@@ -398,7 +403,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
           <textarea class="comment-input" id="sd-comment" placeholder="Adicione uma observação..."></textarea>
           <div class="comment-actions">
             <label class="btn btn-sm attach-btn">📎 Imagem<input type="file" id="sd-comment-image" accept="image/jpeg,image/png,image/webp,image/gif" onchange="handleCommentImage(this,'sub')"></label>
-            <button class="btn btn-primary" style="height:40px;" onclick="saveSubComment()">Salvar</button>
+            <button class="btn btn-sm" id="sd-comment-cancel" style="height:40px;display:none;" onclick="cancelCommentEdit('sub')">Cancelar edição</button>
+            <button class="btn btn-primary" id="sd-comment-save" style="height:40px;" onclick="saveSubComment()">Salvar</button>
           </div>
         </div>
         <div class="image-preview-wrap" id="sd-image-preview"></div>
@@ -418,6 +424,7 @@ const AV=['av-blue','av-purple','av-green','av-amber','av-coral','av-teal','av-p
 let state=JSON.parse(localStorage.getItem('kanboard')||'null')||{tasks:[],members:[],nextId:1};
 let currentTaskId=null,currentSubId=null;
 let pendingTaskImage=null,pendingSubImage=null;
+let editingTaskCommentIndex=-1,editingSubCommentIndex=-1;
 
 function save(){
   try{localStorage.setItem('kanboard',JSON.stringify(state));return true;}
@@ -427,7 +434,7 @@ function ini(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase
 function avc(n){let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffffffff;return AV[Math.abs(h)%AV.length];}
 function mbr(id){return state.members.find(m=>m.id===id);}
 function tsk(id){return state.tasks.find(t=>t.id===id);}
-function esc(s){if(!s)return'';return s.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');}
+function esc(s){if(s===null||s===undefined)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function slbl(s){return{todo:'A Fazer',doing:'Em Andamento',review:'Em Revisão',done:'Concluído'}[s]||s;}
 function fdt(v){if(!v)return'—';const d=new Date(v);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function over(t){if(!t.due||t.status==='done')return false;return new Date(t.due)<new Date();}
@@ -589,8 +596,7 @@ function renderDetail(t){
   document.getElementById('step-input').value='';
   renderSteps(t);
   renderSubs(t);
-  document.getElementById('d-comment').value='';
-  resetCommentImage('task');
+  resetCommentComposer('task');
   renderCmts(t,'d-comments');
 }
 
@@ -691,8 +697,7 @@ function openSubDetail(subId){
   if(s.desc){document.getElementById('sd-desc').textContent=s.desc;sdesc.style.display='';}else sdesc.style.display='none';
   document.getElementById('sub-step-input').value='';
   renderSubSteps(s);
-  document.getElementById('sd-comment').value='';
-  resetCommentImage('sub');
+  resetCommentComposer('sub');
   renderCmts(s,'sd-comments');
   document.getElementById('modal-sub-detail').classList.add('open');
 }
@@ -818,25 +823,107 @@ function closeCommentImage(e){
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const box=document.getElementById('image-lightbox');if(box&&box.classList.contains('open'))closeCommentImage();}});
 
+function getCommentTarget(kind){
+  const t=tsk(currentTaskId);if(!t)return null;
+  if(kind==='task')return t;
+  return (t.subtasks||[]).find(x=>x.id===currentSubId)||null;
+}
+function getCommentEditIndex(kind){return kind==='task'?editingTaskCommentIndex:editingSubCommentIndex;}
+function setCommentEditIndex(kind,index){if(kind==='task')editingTaskCommentIndex=index;else editingSubCommentIndex=index;}
+
+function setCommentPreview(kind,image){
+  if(kind==='task')pendingTaskImage=image||null;else pendingSubImage=image||null;
+  const input=document.getElementById(kind==='task'?'d-comment-image':'sd-comment-image');
+  const preview=document.getElementById(kind==='task'?'d-image-preview':'sd-image-preview');
+  if(input)input.value='';
+  if(!preview)return;
+  if(validCommentImage(image)){
+    preview.innerHTML=`<img class="comment-image-preview" src="${image}" alt="Pré-visualização"><button class="image-preview-remove" onclick="removePendingImage('${kind}')" title="Remover imagem">×</button>`;
+    preview.classList.add('show');
+  }else{
+    preview.innerHTML='';
+    preview.classList.remove('show');
+  }
+}
+
+function updateCommentComposerMode(kind){
+  const editing=getCommentEditIndex(kind)>=0;
+  const saveBtn=document.getElementById(kind==='task'?'d-comment-save':'sd-comment-save');
+  const cancelBtn=document.getElementById(kind==='task'?'d-comment-cancel':'sd-comment-cancel');
+  const input=document.getElementById(kind==='task'?'d-comment':'sd-comment');
+  if(saveBtn)saveBtn.textContent=editing?'Salvar alteração':'Salvar';
+  if(cancelBtn)cancelBtn.style.display=editing?'':'none';
+  if(input)input.placeholder=editing?'Edite a observação...':'Adicione uma observação...';
+}
+
+function resetCommentComposer(kind){
+  setCommentEditIndex(kind,-1);
+  const input=document.getElementById(kind==='task'?'d-comment':'sd-comment');
+  if(input)input.value='';
+  resetCommentImage(kind);
+  updateCommentComposerMode(kind);
+}
+
+function editComment(kind,index){
+  const target=getCommentTarget(kind);if(!target||!target.comments||target.comments[index]===undefined)return;
+  const raw=target.comments[index];
+  const cm=typeof raw==='string'?{text:raw}:raw;
+  setCommentEditIndex(kind,index);
+  const input=document.getElementById(kind==='task'?'d-comment':'sd-comment');
+  if(input){
+    input.value=cm.text||'';
+    input.focus();
+    input.setSelectionRange(input.value.length,input.value.length);
+  }
+  setCommentPreview(kind,validCommentImage(cm.image)?cm.image:null);
+  updateCommentComposerMode(kind);
+  toast('Observação carregada para edição');
+}
+
+function cancelCommentEdit(kind){
+  resetCommentComposer(kind);
+  toast('Edição cancelada');
+}
+
 function renderCmts(t,elId){
   const c=document.getElementById(elId);if(!t.comments||!t.comments.length){c.innerHTML='';return;}
-  c.innerHTML=t.comments.map(cm=>{
+  const kind=elId==='d-comments'?'task':'sub';
+  c.innerHTML=t.comments.map((raw,i)=>{
+    const cm=typeof raw==='string'?{text:raw,date:''}:raw;
     const text=cm.text?`<div class="comment-text">${esc(cm.text)}</div>`:'';
     const img=validCommentImage(cm.image)?`<img class="comment-image" src="${cm.image}" alt="Imagem anexada à observação" onclick="openCommentImage(this.src)" title="Clique para ampliar">`:'';
-    return`<div class="comment-item"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${esc(cm.date||'')}</div>${text}${img}</div>`;
+    const editInfo=cm.edited?` · editada em ${esc(cm.edited)}`:'';
+    return`<div class="comment-item"><div class="comment-meta"><div class="comment-meta-date">${esc(cm.date||'')}${editInfo}</div><button class="comment-edit-btn" onclick="editComment('${kind}',${i})">✎ Editar</button></div>${text}${img}</div>`;
   }).join('');
 }
+
 function saveComment(){
   const t=tsk(currentTaskId);if(!t)return;
   const text=document.getElementById('d-comment').value.trim();
   const image=pendingTaskImage;
   if(!text&&!image){toast('Digite uma observação ou anexe uma imagem.');return;}
   if(!t.comments)t.comments=[];
+  const editIndex=editingTaskCommentIndex;
+  if(editIndex>=0&&t.comments[editIndex]!==undefined){
+    const old=t.comments[editIndex];
+    const oldObj=typeof old==='string'?{text:old,date:''}:old;
+    const cm={text,date:oldObj.date||new Date().toLocaleString('pt-BR'),edited:new Date().toLocaleString('pt-BR')};
+    if(image)cm.image=image;
+    t.comments[editIndex]=cm;
+    if(!save()){t.comments[editIndex]=old;return;}
+    resetCommentComposer('task');
+    renderCmts(t,'d-comments');
+    toast('Observação atualizada!');
+    return;
+  }
   const cm={text,date:new Date().toLocaleString('pt-BR')};if(image)cm.image=image;
   t.comments.push(cm);
   if(!save()){t.comments.pop();return;}
-  document.getElementById('d-comment').value='';resetCommentImage('task');renderCmts(t,'d-comments');toast('Observação salva!');
+  resetCommentComposer('task');
+  renderCmts(t,'d-comments');
+  toast('Observação salva!');
 }
+
 function saveSubComment(){
   const t=tsk(currentTaskId);if(!t)return;
   const s=(t.subtasks||[]).find(x=>x.id===currentSubId);if(!s)return;
@@ -844,10 +931,25 @@ function saveSubComment(){
   const image=pendingSubImage;
   if(!text&&!image){toast('Digite uma observação ou anexe uma imagem.');return;}
   if(!s.comments)s.comments=[];
+  const editIndex=editingSubCommentIndex;
+  if(editIndex>=0&&s.comments[editIndex]!==undefined){
+    const old=s.comments[editIndex];
+    const oldObj=typeof old==='string'?{text:old,date:''}:old;
+    const cm={text,date:oldObj.date||new Date().toLocaleString('pt-BR'),edited:new Date().toLocaleString('pt-BR')};
+    if(image)cm.image=image;
+    s.comments[editIndex]=cm;
+    if(!save()){s.comments[editIndex]=old;return;}
+    resetCommentComposer('sub');
+    renderCmts(s,'sd-comments');
+    toast('Observação atualizada!');
+    return;
+  }
   const cm={text,date:new Date().toLocaleString('pt-BR')};if(image)cm.image=image;
   s.comments.push(cm);
   if(!save()){s.comments.pop();return;}
-  document.getElementById('sd-comment').value='';resetCommentImage('sub');renderCmts(s,'sd-comments');toast('Observação salva!');
+  resetCommentComposer('sub');
+  renderCmts(s,'sd-comments');
+  toast('Observação salva!');
 }
 
 function setView(v){
