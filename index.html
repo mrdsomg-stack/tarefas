@@ -125,10 +125,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
 .subtask-id{font-family:var(--mono);font-size:10px;color:var(--text3);}
 .subtask-title{font-size:13px;font-weight:500;color:var(--text);flex:1;}
 .subtask-status{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;}
+.comment-compose{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
 .comment-box{display:flex;gap:10px;align-items:flex-start;}
 .comment-input{flex:1;font-family:var(--font);font-size:13px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;outline:none;resize:none;height:40px;transition:all .12s;}
 .comment-input:focus{border-color:var(--accent);height:72px;}
+.comment-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.attach-btn{height:40px;display:flex;align-items:center;justify-content:center;white-space:nowrap;}
+.attach-btn input{display:none;}
+.image-preview-wrap{display:none;position:relative;width:max-content;max-width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px;}
+.image-preview-wrap.show{display:block;}
+.comment-image-preview{display:block;max-width:220px;max-height:150px;border-radius:6px;object-fit:cover;}
+.image-preview-remove{position:absolute;top:10px;right:10px;width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;cursor:pointer;font-size:16px;line-height:24px;text-align:center;}
 .comment-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;}
+.comment-text{font-size:13px;color:var(--text2);white-space:pre-wrap;word-break:break-word;}
+.comment-image{display:block;max-width:100%;max-height:360px;margin-top:8px;border-radius:8px;border:1px solid var(--border2);object-fit:contain;background:var(--bg);cursor:zoom-in;}
+.image-lightbox{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:30px;}
+.image-lightbox.open{display:flex;}
+.image-lightbox img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 70px rgba(0,0,0,.7);}
+.image-lightbox-close{position:fixed;top:18px;right:22px;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.45);color:#fff;font-size:22px;cursor:pointer;}
+@media(max-width:700px){.comment-box{flex-direction:column;}.comment-actions{width:100%;}.comment-actions .btn{flex:1;justify-content:center;}.comment-image-preview{max-width:100%;}}
 .status-todo{color:var(--todo);border-color:rgba(245,158,11,0.3);}
 .status-todo.active,.status-todo:hover{background:rgba(245,158,11,0.1);}
 .status-doing{color:var(--doing);border-color:rgba(92,110,248,0.3);}
@@ -302,7 +317,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
     <!-- OBSERVAÇÕES -->
     <div class="detail-section">
       <div class="detail-label">Observações</div>
-      <div class="comment-box" style="margin-bottom:10px;"><textarea class="comment-input" id="d-comment" placeholder="Adicione uma observação..."></textarea><button class="btn btn-primary" style="height:40px;" onclick="saveComment()">Salvar</button></div>
+      <div class="comment-compose">
+        <div class="comment-box">
+          <textarea class="comment-input" id="d-comment" placeholder="Adicione uma observação..."></textarea>
+          <div class="comment-actions">
+            <label class="btn btn-sm attach-btn">📎 Imagem<input type="file" id="d-comment-image" accept="image/jpeg,image/png,image/webp,image/gif" onchange="handleCommentImage(this,'task')"></label>
+            <button class="btn btn-primary" style="height:40px;" onclick="saveComment()">Salvar</button>
+          </div>
+        </div>
+        <div class="image-preview-wrap" id="d-image-preview"></div>
+      </div>
       <div id="d-comments" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
     <div class="modal-footer"><button class="btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteTask()">Excluir</button><button class="btn" onclick="closeDetail()">Fechar</button></div>
@@ -369,12 +393,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
     <!-- OBSERVAÇÕES SUBTAREFA -->
     <div class="detail-section">
       <div class="detail-label">Observações</div>
-      <div class="comment-box" style="margin-bottom:10px;"><textarea class="comment-input" id="sd-comment" placeholder="Adicione uma observação..."></textarea><button class="btn btn-primary" style="height:40px;" onclick="saveSubComment()">Salvar</button></div>
+      <div class="comment-compose">
+        <div class="comment-box">
+          <textarea class="comment-input" id="sd-comment" placeholder="Adicione uma observação..."></textarea>
+          <div class="comment-actions">
+            <label class="btn btn-sm attach-btn">📎 Imagem<input type="file" id="sd-comment-image" accept="image/jpeg,image/png,image/webp,image/gif" onchange="handleCommentImage(this,'sub')"></label>
+            <button class="btn btn-primary" style="height:40px;" onclick="saveSubComment()">Salvar</button>
+          </div>
+        </div>
+        <div class="image-preview-wrap" id="sd-image-preview"></div>
+      </div>
       <div id="sd-comments" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
     <div class="modal-footer"><button class="btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteSubtask()">Excluir</button><button class="btn" onclick="closeSubDetail()">Fechar</button></div>
   </div>
 </div>
+
+<div class="image-lightbox" id="image-lightbox" onclick="closeCommentImage(event)"><button class="image-lightbox-close" onclick="closeCommentImage()">×</button><img id="image-lightbox-img" alt="Imagem da observação"></div>
 
 <div class="toast" id="toast"><div class="toast-dot"></div><span id="toast-msg"></span></div>
 
@@ -382,13 +417,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
 const AV=['av-blue','av-purple','av-green','av-amber','av-coral','av-teal','av-pink'];
 let state=JSON.parse(localStorage.getItem('kanboard')||'null')||{tasks:[],members:[],nextId:1};
 let currentTaskId=null,currentSubId=null;
+let pendingTaskImage=null,pendingSubImage=null;
 
-function save(){localStorage.setItem('kanboard',JSON.stringify(state));}
+function save(){
+  try{localStorage.setItem('kanboard',JSON.stringify(state));return true;}
+  catch(e){toast('Armazenamento cheio. Remova alguma imagem ou use uma imagem menor.');return false;}
+}
 function ini(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function avc(n){let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffffffff;return AV[Math.abs(h)%AV.length];}
 function mbr(id){return state.members.find(m=>m.id===id);}
 function tsk(id){return state.tasks.find(t=>t.id===id);}
-function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){if(!s)return'';return s.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');}
 function slbl(s){return{todo:'A Fazer',doing:'Em Andamento',review:'Em Revisão',done:'Concluído'}[s]||s;}
 function fdt(v){if(!v)return'—';const d=new Date(v);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function over(t){if(!t.due||t.status==='done')return false;return new Date(t.due)<new Date();}
@@ -551,6 +590,7 @@ function renderDetail(t){
   renderSteps(t);
   renderSubs(t);
   document.getElementById('d-comment').value='';
+  resetCommentImage('task');
   renderCmts(t,'d-comments');
 }
 
@@ -652,6 +692,7 @@ function openSubDetail(subId){
   document.getElementById('sub-step-input').value='';
   renderSubSteps(s);
   document.getElementById('sd-comment').value='';
+  resetCommentImage('sub');
   renderCmts(s,'sd-comments');
   document.getElementById('modal-sub-detail').classList.add('open');
 }
@@ -707,23 +748,106 @@ function toggleSubStep(i){const t=tsk(currentTaskId);if(!t)return;const s=(t.sub
 function deleteSubStep(i){const t=tsk(currentTaskId);if(!t)return;const s=(t.subtasks||[]).find(x=>x.id===currentSubId);if(!s||!s.steps)return;s.steps.splice(i,1);save();renderSubSteps(s);}
 document.getElementById('sub-step-input').addEventListener('keydown',e=>{if(e.key==='Enter')addSubStep();});
 
-// COMMENTS
+// COMMENTS + IMAGENS
+function validCommentImage(src){return typeof src==='string'&&/^data:image\/(jpeg|png|webp|gif);base64,/i.test(src);}
+
+function compressCommentImage(file){
+  return new Promise((resolve,reject)=>{
+    const allowed=['image/jpeg','image/png','image/webp','image/gif'];
+    if(!allowed.includes(file.type)){reject(new Error('Use uma imagem JPG, PNG, WEBP ou GIF.'));return;}
+    if(file.size>15*1024*1024){reject(new Error('A imagem é muito grande. O limite para seleção é 15 MB.'));return;}
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Não foi possível ler a imagem.'));
+    reader.onload=()=>{
+      if(file.type==='image/gif'){
+        const raw=reader.result;
+        if(raw.length>1500000){reject(new Error('GIF muito grande. Use um arquivo menor que aproximadamente 1 MB.'));return;}
+        resolve(raw);return;
+      }
+      const img=new Image();
+      img.onerror=()=>reject(new Error('Não foi possível processar a imagem.'));
+      img.onload=()=>{
+        let w=img.naturalWidth,h=img.naturalHeight;
+        const maxDim=1400;
+        if(Math.max(w,h)>maxDim){const r=maxDim/Math.max(w,h);w=Math.round(w*r);h=Math.round(h*r);}
+        const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+        let quality=.82;
+        let data=canvas.toDataURL('image/webp',quality);
+        while(data.length>1200000&&quality>.45){quality-=.08;data=canvas.toDataURL('image/webp',quality);}
+        if(data.length>1500000){reject(new Error('A imagem ainda ficou muito grande após a compactação. Escolha uma imagem menor.'));return;}
+        resolve(data);
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleCommentImage(input,kind){
+  const file=input.files&&input.files[0];if(!file)return;
+  try{
+    const data=await compressCommentImage(file);
+    if(kind==='task')pendingTaskImage=data;else pendingSubImage=data;
+    const preview=document.getElementById(kind==='task'?'d-image-preview':'sd-image-preview');
+    preview.innerHTML=`<img class="comment-image-preview" src="${data}" alt="Pré-visualização"><button class="image-preview-remove" onclick="removePendingImage('${kind}')" title="Remover imagem">×</button>`;
+    preview.classList.add('show');
+  }catch(err){input.value='';toast(err.message||'Não foi possível anexar a imagem.');}
+}
+
+function removePendingImage(kind){
+  if(kind==='task')pendingTaskImage=null;else pendingSubImage=null;
+  const input=document.getElementById(kind==='task'?'d-comment-image':'sd-comment-image');
+  const preview=document.getElementById(kind==='task'?'d-image-preview':'sd-image-preview');
+  if(input)input.value='';
+  if(preview){preview.innerHTML='';preview.classList.remove('show');}
+}
+function resetCommentImage(kind){removePendingImage(kind);}
+
+function openCommentImage(src){
+  if(!validCommentImage(src))return;
+  document.getElementById('image-lightbox-img').src=src;
+  document.getElementById('image-lightbox').classList.add('open');
+}
+function closeCommentImage(e){
+  const box=document.getElementById('image-lightbox');
+  if(!e||e.target===box||e.target.classList.contains('image-lightbox-close')){
+    box.classList.remove('open');document.getElementById('image-lightbox-img').src='';
+  }
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const box=document.getElementById('image-lightbox');if(box&&box.classList.contains('open'))closeCommentImage();}});
+
 function renderCmts(t,elId){
   const c=document.getElementById(elId);if(!t.comments||!t.comments.length){c.innerHTML='';return;}
-  c.innerHTML=t.comments.map(cm=>`<div class="comment-item"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${cm.date}</div><div style="font-size:13px;color:var(--text2);">${esc(cm.text)}</div></div>`).join('');
+  c.innerHTML=t.comments.map(cm=>{
+    const text=cm.text?`<div class="comment-text">${esc(cm.text)}</div>`:'';
+    const img=validCommentImage(cm.image)?`<img class="comment-image" src="${cm.image}" alt="Imagem anexada à observação" onclick="openCommentImage(this.src)" title="Clique para ampliar">`:'';
+    return`<div class="comment-item"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${esc(cm.date||'')}</div>${text}${img}</div>`;
+  }).join('');
 }
 function saveComment(){
   const t=tsk(currentTaskId);if(!t)return;
-  const text=document.getElementById('d-comment').value.trim();if(!text)return;
-  if(!t.comments)t.comments=[];t.comments.push({text,date:new Date().toLocaleString('pt-BR')});
-  save();document.getElementById('d-comment').value='';renderCmts(t,'d-comments');toast('Observação salva!');
+  const text=document.getElementById('d-comment').value.trim();
+  const image=pendingTaskImage;
+  if(!text&&!image){toast('Digite uma observação ou anexe uma imagem.');return;}
+  if(!t.comments)t.comments=[];
+  const cm={text,date:new Date().toLocaleString('pt-BR')};if(image)cm.image=image;
+  t.comments.push(cm);
+  if(!save()){t.comments.pop();return;}
+  document.getElementById('d-comment').value='';resetCommentImage('task');renderCmts(t,'d-comments');toast('Observação salva!');
 }
 function saveSubComment(){
   const t=tsk(currentTaskId);if(!t)return;
   const s=(t.subtasks||[]).find(x=>x.id===currentSubId);if(!s)return;
-  const text=document.getElementById('sd-comment').value.trim();if(!text)return;
-  if(!s.comments)s.comments=[];s.comments.push({text,date:new Date().toLocaleString('pt-BR')});
-  save();document.getElementById('sd-comment').value='';renderCmts(s,'sd-comments');toast('Observação salva!');
+  const text=document.getElementById('sd-comment').value.trim();
+  const image=pendingSubImage;
+  if(!text&&!image){toast('Digite uma observação ou anexe uma imagem.');return;}
+  if(!s.comments)s.comments=[];
+  const cm={text,date:new Date().toLocaleString('pt-BR')};if(image)cm.image=image;
+  s.comments.push(cm);
+  if(!save()){s.comments.pop();return;}
+  document.getElementById('sd-comment').value='';resetCommentImage('sub');renderCmts(s,'sd-comments');toast('Observação salva!');
 }
 
 function setView(v){
