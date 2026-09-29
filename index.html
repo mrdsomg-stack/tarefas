@@ -139,8 +139,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 2
 .comment-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;}
 .comment-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
 .comment-meta-date{font-size:11px;color:var(--text3);line-height:1.35;}
-.comment-edit-btn{border:none;background:transparent;color:var(--text3);font-family:var(--font);font-size:11px;cursor:pointer;padding:3px 7px;border-radius:4px;white-space:nowrap;}
+.comment-action-buttons{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.comment-edit-btn,.comment-delete-btn{border:none;background:transparent;color:var(--text3);font-family:var(--font);font-size:11px;cursor:pointer;padding:3px 7px;border-radius:4px;white-space:nowrap;transition:all .12s;}
 .comment-edit-btn:hover{color:var(--accent2);background:rgba(92,110,248,.1);}
+.comment-delete-btn:hover{color:var(--danger);background:rgba(239,68,68,.1);}
 .comment-text{font-size:13px;color:var(--text2);white-space:pre-wrap;word-break:break-word;}
 .comment-image{display:block;max-width:100%;max-height:360px;margin-top:8px;border-radius:8px;border:1px solid var(--border2);object-fit:contain;background:var(--bg);cursor:zoom-in;}
 .image-lightbox{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:30px;}
@@ -885,6 +887,30 @@ function cancelCommentEdit(kind){
   toast('Edição cancelada');
 }
 
+function deleteComment(kind,index){
+  const target=getCommentTarget(kind);
+  if(!target||!target.comments||target.comments[index]===undefined)return;
+  if(!confirm('Excluir esta observação? Esta ação não pode ser desfeita.'))return;
+
+  const oldComments=[...target.comments];
+  const editIndex=getCommentEditIndex(kind);
+  target.comments.splice(index,1);
+
+  if(!save()){
+    target.comments=oldComments;
+    return;
+  }
+
+  if(editIndex===index){
+    resetCommentComposer(kind);
+  }else if(editIndex>index){
+    setCommentEditIndex(kind,editIndex-1);
+  }
+
+  renderCmts(target,kind==='task'?'d-comments':'sd-comments');
+  toast('Observação excluída!');
+}
+
 function renderCmts(t,elId){
   const c=document.getElementById(elId);if(!t.comments||!t.comments.length){c.innerHTML='';return;}
   const kind=elId==='d-comments'?'task':'sub';
@@ -893,7 +919,7 @@ function renderCmts(t,elId){
     const text=cm.text?`<div class="comment-text">${esc(cm.text)}</div>`:'';
     const img=validCommentImage(cm.image)?`<img class="comment-image" src="${cm.image}" alt="Imagem anexada à observação" onclick="openCommentImage(this.src)" title="Clique para ampliar">`:'';
     const editInfo=cm.edited?` · editada em ${esc(cm.edited)}`:'';
-    return`<div class="comment-item"><div class="comment-meta"><div class="comment-meta-date">${esc(cm.date||'')}${editInfo}</div><button class="comment-edit-btn" onclick="editComment('${kind}',${i})">✎ Editar</button></div>${text}${img}</div>`;
+    return`<div class="comment-item"><div class="comment-meta"><div class="comment-meta-date">${esc(cm.date||'')}${editInfo}</div><div class="comment-action-buttons"><button class="comment-edit-btn" onclick="editComment('${kind}',${i})">✎ Editar</button><button class="comment-delete-btn" onclick="deleteComment('${kind}',${i})">🗑 Excluir</button></div></div>${text}${img}</div>`;
   }).join('');
 }
 
